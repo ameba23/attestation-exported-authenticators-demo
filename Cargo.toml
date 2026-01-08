@@ -1,0 +1,15 @@
+[package]
+name = "attestation-exported-authenticators-demo"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+attestation-exported-authenticators = { git = "https://github.com/tls-attestation/attestation-exported-authenticators.git" }
+clap = { version = "4.5.51", features = ["derive"] }
+pem-rfc7468 = { version = "1.0.0", features = ["std"] }
+quinn = "0.11.9"
+rcgen = "0.14.6"
+rustls = { version = "0.23.36", features = ["aws-lc-rs"] }
+rustls-pemfile = "2.2.0"
+tokio = { version = "1.49.0", features = ["full"] }
