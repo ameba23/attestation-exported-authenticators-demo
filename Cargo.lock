@@ -115,7 +115,6 @@ checksum = "1505bd5d3d116872e7271a6d4e16d81d0c8570876c8de68093a09ac269d8aac0"
 [[package]]
 name = "attestation-exported-authenticators"
 version = "0.1.0"
-source = "git+https://github.com/tls-attestation/attestation-exported-authenticators.git#e51fc12927efc4d75bb2f71b589b7d1afe3506bc"
 dependencies = [
  "asn1-rs",
  "cmw",

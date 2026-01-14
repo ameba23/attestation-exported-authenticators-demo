@@ -5,7 +5,8 @@ edition = "2024"
 
 [dependencies]
 anyhow = "1.0.100"
-attestation-exported-authenticators = { git = "https://github.com/tls-attestation/attestation-exported-authenticators.git" }
+# attestation-exported-authenticators = { git = "https://github.com/tls-attestation/attestation-exported-authenticators.git", features = ["mock"] }
+attestation-exported-authenticators = { path = "../attestation-exported-authenticators", features = ["mock"] }
 clap = { version = "4.5.51", features = ["derive"] }
 pem-rfc7468 = { version = "1.0.0", features = ["std"] }
 quinn = "0.11.9"

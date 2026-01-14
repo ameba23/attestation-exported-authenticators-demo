@@ -1,11 +1,11 @@
 use std::{fs::File, net::SocketAddr, path::PathBuf, sync::Arc};
 
-use anyhow::anyhow;
+use anyhow::{anyhow, bail};
 use attestation_exported_authenticators::{
     attestation::{AttestationGenerator, AttestationType, AttestationValidator},
     quic::{AttestedQuic, TlsServer},
 };
-use clap::{Parser, Subcommand};
+use clap::Parser;
 use quinn::{
     crypto::rustls::{QuicClientConfig, QuicServerConfig},
     ClientConfig, ServerConfig,
@@ -16,16 +16,29 @@ use rustls::{
 };
 
 /// Create a self-signed certificate and keypair
-pub fn generate_certificate_chain() -> (Vec<CertificateDer<'static>>, PrivateKeyDer<'static>) {
+pub fn generate_certificate_chain() -> TlsCertAndKey {
     let subject_alt_names = vec!["localhost".to_string()];
     let cert_key = rcgen::generate_simple_self_signed(subject_alt_names)
         .expect("Failed to generate self-signed certificate");
 
-    let certs = vec![CertificateDer::from(cert_key.cert)];
+    let cert_chain = vec![CertificateDer::from(cert_key.cert)];
     let key = PrivateKeyDer::Pkcs8(PrivatePkcs8KeyDer::from(
         cert_key.signing_key.serialize_der(),
     ));
-    (certs, key)
+
+    let cert_chain_pem = certs_to_pem_string(&cert_chain).unwrap();
+
+    if let Err(err) = std::fs::write("cert_chain.pem", &cert_chain_pem) {
+        println!("Failed to write certs to file: {err}");
+    }
+
+    let key_pem = private_key_to_pem_string(&key).unwrap();
+
+    if let Err(err) = std::fs::write("key.pem", &key_pem) {
+        println!("Failed to write key to file: {err}");
+    }
+
+    TlsCertAndKey { cert_chain, key }
 }
 
 /// Create a TLS configuration, optionally specifying a remote certificate chain and client authentication
@@ -89,6 +102,7 @@ fn client_verifier_from_remote_cert(
 
 /// Setup a quinn server, with optional remote ceritifcate and client authentication
 pub fn create_quinn_server(
+    port: u16,
     certificate_chain: Vec<CertificateDer<'static>>,
     key: PrivateKeyDer<'static>,
     remote_cert_chain: Option<&Vec<CertificateDer<'static>>>,
@@ -101,7 +115,8 @@ pub fn create_quinn_server(
         tls_server_config.try_into().unwrap(),
     ));
     let mut quic_server =
-        quinn::Endpoint::server(server_config, "127.0.0.1:0".parse().unwrap()).unwrap();
+        quinn::Endpoint::server(server_config, format!("127.0.0.1:{port}").parse().unwrap())
+            .unwrap();
 
     if let Some(tls_client_config) = tls_client_config {
         let client_config = ClientConfig::new(Arc::<QuicClientConfig>::new(
@@ -115,6 +130,8 @@ pub fn create_quinn_server(
 #[derive(Parser, Debug, Clone)]
 #[clap(version, about, long_about = None)]
 struct Cli {
+    #[arg(long)]
+    port: Option<u16>,
     #[arg(long)]
     connect: Option<SocketAddr>,
     #[arg(long)]
@@ -132,8 +149,29 @@ async fn main() -> anyhow::Result<()> {
         .install_default()
         .expect("install aws-lc-rs provider");
 
-    let (cert_chain, keypair) = generate_certificate_chain();
-    let quinn_server = create_quinn_server(cert_chain.clone(), keypair.clone_key(), None, false);
+    let TlsCertAndKey { cert_chain, key } = if let Some(cert_file) = cli.cert_file {
+        if let Some(key_file) = cli.private_key {
+            load_tls_cert_and_key(cert_file, key_file)?
+        } else {
+            bail!("certificate file given but no private key");
+        }
+    } else {
+        generate_certificate_chain()
+    };
+
+    let remote_cert_chain = if let Some(path) = cli.remote_cert_chain {
+        Some(load_certs_pem(path)?)
+    } else {
+        None
+    };
+
+    let quinn_server = create_quinn_server(
+        cli.port.unwrap_or_default(),
+        cert_chain.clone(),
+        key.clone_key(),
+        remote_cert_chain.as_ref(),
+        false,
+    );
     let endpoint = AttestedQuic {
         provider: rustls::crypto::aws_lc_rs::default_provider().into(),
         attestation_validator: AttestationValidator::new_mock_tdx(),
@@ -143,7 +181,7 @@ async fn main() -> anyhow::Result<()> {
         endpoint: quinn_server,
         tls_server: Some(TlsServer {
             certificate_chain: cert_chain.clone(),
-            private_key: keypair,
+            private_key: key,
         }),
     };
 
@@ -153,12 +191,24 @@ async fn main() -> anyhow::Result<()> {
     let endpoint_c = endpoint.clone();
     tokio::spawn(async move {
         if let Some(addr) = cli.connect {
-            endpoint_c.connect(addr, &addr.to_string()).await.unwrap();
+            let (_connection, measurements) = endpoint_c.connect(addr, "localhost").await.unwrap();
+
+            println!("Validated remote attestation with measurements: {measurements:?}");
         }
     });
 
-    while let Ok(_conn) = endpoint.accept().await {
-        println!("Accepted connection");
+    loop {
+        let connection_result = endpoint.accept().await;
+        match connection_result {
+            Ok(conn) => {
+                println!("Accepted connection");
+                // conn.close(0u32.into(), b"");
+            }
+            Err(err) => {
+                println!("Incoming connection failed: {err}");
+                break;
+            }
+        }
     }
 
     Ok(())
@@ -202,6 +252,20 @@ fn certs_to_pem_string(certs: &[CertificateDer<'_>]) -> Result<String, pem_rfc74
         out.push('\n');
     }
     Ok(out)
+}
+
+fn private_key_to_pem_string(key: &PrivateKeyDer<'_>) -> Result<String, pem_rfc7468::Error> {
+    match key {
+        PrivateKeyDer::Pkcs8(k) => {
+            let pem = pem_rfc7468::encode_string(
+                "PRIVATE KEY",
+                pem_rfc7468::LineEnding::LF,
+                k.secret_pkcs8_der(),
+            )?;
+            Ok(pem)
+        }
+        _ => panic!("Key not PKCS8"),
+    }
 }
 
 /// TLS Credentials
