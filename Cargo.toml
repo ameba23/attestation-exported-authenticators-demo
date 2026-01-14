@@ -7,10 +7,14 @@ edition = "2024"
 anyhow = "1.0.100"
 # attestation-exported-authenticators = { git = "https://github.com/tls-attestation/attestation-exported-authenticators.git", features = ["mock"] }
 attestation-exported-authenticators = { path = "../attestation-exported-authenticators", features = ["mock"] }
+axum = { version = "0.7.5", features = ["ws"] }
 clap = { version = "4.5.51", features = ["derive"] }
+futures-util = "0.3.31"
 pem-rfc7468 = { version = "1.0.0", features = ["std"] }
 quinn = "0.11.9"
 rcgen = "0.14.6"
 rustls = { version = "0.23.36", features = ["aws-lc-rs"] }
 rustls-pemfile = "2.2.0"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
 tokio = { version = "1.49.0", features = ["full"] }

@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Attested QUIC Demo</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #0b0c10;
+        --panel: #111722;
+        --panel-alt: #151e2d;
+        --text: #f6f5f0;
+        --muted: #9aa4b5;
+        --accent: #ffd166;
+        --accent-2: #06d6a0;
+        --border: #263049;
+        --glow: rgba(255, 209, 102, 0.25);
+        --danger: #ef476f;
+        --radius: 18px;
+        --shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+        font-family: "IBM Plex Mono", "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono",
+          monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at top left, #1a2336 0%, #0b0c10 50%, #07080c 100%);
+        color: var(--text);
+        display: flex;
+        align-items: stretch;
+        justify-content: center;
+        padding: 32px;
+      }
+
+      .shell {
+        width: min(1100px, 100%);
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+
+      header {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 20px 24px;
+        border-radius: var(--radius);
+        background: linear-gradient(135deg, #1f2a44 0%, #131a27 100%);
+        box-shadow: var(--shadow);
+        border: 1px solid var(--border);
+      }
+
+      header h1 {
+        font-size: 20px;
+        margin: 0;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      header p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .pill {
+        padding: 8px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 209, 102, 0.4);
+        color: var(--accent);
+        font-size: 12px;
+        letter-spacing: 0.08em;
+      }
+
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px;
+        box-shadow: var(--shadow);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-height: 280px;
+      }
+
+      .card h2 {
+        font-size: 14px;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .log {
+        flex: 1;
+        background: var(--panel-alt);
+        border-radius: 14px;
+        padding: 14px;
+        border: 1px dashed rgba(154, 164, 181, 0.25);
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .log-item {
+        font-size: 13px;
+        line-height: 1.4;
+        padding: 8px 10px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .log-item strong {
+        color: var(--accent);
+        margin-right: 6px;
+      }
+
+      .chat-item {
+        display: grid;
+        gap: 4px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(6, 214, 160, 0.14);
+        border: 1px solid rgba(6, 214, 160, 0.3);
+        font-size: 13px;
+      }
+
+      .chat-item.local {
+        align-self: flex-end;
+        background: rgba(255, 209, 102, 0.16);
+        border-color: rgba(255, 209, 102, 0.35);
+      }
+
+      .chat-item .meta {
+        font-size: 11px;
+        color: var(--muted);
+      }
+
+      form {
+        display: flex;
+        gap: 8px;
+      }
+
+      input[type="text"] {
+        flex: 1;
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        background: rgba(11, 12, 16, 0.6);
+        color: var(--text);
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+
+      button {
+        border: none;
+        border-radius: 12px;
+        background: linear-gradient(135deg, #ffd166, #f9c74f);
+        color: #1b1b1b;
+        font-weight: 600;
+        padding: 10px 16px;
+        cursor: pointer;
+        transition: transform 0.15s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--danger);
+        box-shadow: 0 0 12px rgba(239, 71, 111, 0.4);
+        display: inline-block;
+        margin-right: 8px;
+      }
+
+      .status-dot.ok {
+        background: var(--accent-2);
+        box-shadow: 0 0 12px rgba(6, 214, 160, 0.4);
+      }
+
+      @media (max-width: 700px) {
+        body {
+          padding: 20px;
+        }
+
+        header {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <header>
+        <div>
+          <h1>Attested QUIC Demo</h1>
+          <p>Remote-attested TLS over QUIC with live status + chat.</p>
+        </div>
+        <div class="pill"><span id="ws-indicator" class="status-dot"></span>UI Link</div>
+      </header>
+
+      <section class="card">
+        <h2>Status Feed</h2>
+        <div id="status-log" class="log"></div>
+      </section>
+
+      <section class="card">
+        <h2>Chat</h2>
+        <div id="chat-log" class="log"></div>
+        <form id="chat-form">
+          <input id="chat-input" type="text" placeholder="Send a message to the peer..." />
+          <button type="submit">Send</button>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const statusLog = document.getElementById("status-log");
+      const chatLog = document.getElementById("chat-log");
+      const form = document.getElementById("chat-form");
+      const input = document.getElementById("chat-input");
+      const indicator = document.getElementById("ws-indicator");
+
+      function appendStatus(text) {
+        const row = document.createElement("div");
+        row.className = "log-item";
+        row.innerHTML = "<strong>status</strong>" + text;
+        statusLog.appendChild(row);
+        statusLog.scrollTop = statusLog.scrollHeight;
+      }
+
+      function appendChat(text, from) {
+        const row = document.createElement("div");
+        row.className = "chat-item" + (from === "local" ? " local" : "");
+        row.innerHTML =
+          "<div class=\"meta\">" + from + "</div>" + "<div class=\"body\">" + text + "</div>";
+        chatLog.appendChild(row);
+        chatLog.scrollTop = chatLog.scrollHeight;
+      }
+
+      const scheme = location.protocol === "https:" ? "wss" : "ws";
+      const socket = new WebSocket(scheme + "://" + location.host + "/ws");
+
+      socket.addEventListener("open", () => {
+        indicator.classList.add("ok");
+        appendStatus("web UI connected");
+      });
+
+      socket.addEventListener("close", () => {
+        indicator.classList.remove("ok");
+        appendStatus("web UI disconnected");
+      });
+
+      socket.addEventListener("message", (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "status") {
+            appendStatus(data.text);
+          } else if (data.type === "chat") {
+            appendChat(data.text, data.from || "peer");
+          }
+        } catch (err) {
+          appendStatus("bad message from server");
+        }
+      });
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const text = input.value.trim();
+        if (!text) {
+          return;
+        }
+        socket.send(JSON.stringify({ type: "chat", text }));
+        input.value = "";
+      });
+    </script>
+  </body>
+</html>
