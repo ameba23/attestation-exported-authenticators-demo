@@ -68,7 +68,9 @@ async fn main() -> anyhow::Result<()> {
     );
     let endpoint = AttestedQuic {
         provider: rustls::crypto::aws_lc_rs::default_provider().into(),
-        attestation_validator: AttestationValidator::new_mock_tdx(),
+        attestation_validator: AttestationValidator {
+            accepted_measurements: Vec::new(),
+        },
         attestation_generator: AttestationGenerator {
             attestation_type: AttestationType::DcapTdx,
         },

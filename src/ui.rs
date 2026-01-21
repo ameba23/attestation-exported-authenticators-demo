@@ -62,10 +62,7 @@ async fn index_handler() -> Html<&'static str> {
     Html(html)
 }
 
-async fn ws_handler(
-    ws: WebSocketUpgrade,
-    State(state): State<Arc<AppState>>,
-) -> impl IntoResponse {
+async fn ws_handler(ws: WebSocketUpgrade, State(state): State<Arc<AppState>>) -> impl IntoResponse {
     ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 
@@ -120,19 +117,14 @@ pub async fn run_http_server(state: Arc<AppState>, port: u16) -> Result<()> {
         .route("/ws", get(ws_handler))
         .with_state(state);
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let addr = SocketAddr::from(([0, 0, 0, 0], port));
     let listener = tokio::net::TcpListener::bind(addr).await?;
     axum::serve(listener, app).await?;
     Ok(())
 }
 
 pub fn send_status(state: &AppState, text: impl Into<String>) {
-    emit_event(
-        state,
-        ServerEvent::Status {
-            text: text.into(),
-        },
-    );
+    emit_event(state, ServerEvent::Status { text: text.into() });
 }
 
 pub async fn add_connection(state: &Arc<AppState>, conn: quinn::Connection) {
