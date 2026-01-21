@@ -1,4 +1,4 @@
-use std::{fs::File, path::PathBuf, sync::Arc};
+use std::{fs::File, net::SocketAddr, path::PathBuf, sync::Arc};
 
 use anyhow::anyhow;
 use quinn::{
@@ -105,7 +105,7 @@ fn client_verifier_from_remote_cert(
 
 /// Setup a quinn server, with optional remote ceritifcate and client authentication
 pub fn create_quinn_server(
-    port: u16,
+    socket_address: SocketAddr,
     certificate_chain: Vec<CertificateDer<'static>>,
     key: PrivateKeyDer<'static>,
     remote_cert_chain: Option<&Vec<CertificateDer<'static>>>,
@@ -117,9 +117,7 @@ pub fn create_quinn_server(
     let server_config = ServerConfig::with_crypto(Arc::<QuicServerConfig>::new(
         tls_server_config.try_into().unwrap(),
     ));
-    let mut quic_server =
-        quinn::Endpoint::server(server_config, format!("127.0.0.1:{port}").parse().unwrap())
-            .unwrap();
+    let mut quic_server = quinn::Endpoint::server(server_config, socket_address).unwrap();
 
     if let Some(tls_client_config) = tls_client_config {
         let client_config = ClientConfig::new(Arc::<QuicClientConfig>::new(

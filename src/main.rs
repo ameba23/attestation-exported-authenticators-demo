@@ -22,7 +22,7 @@ use crate::ui::{
 #[clap(version, about, long_about = None)]
 struct Cli {
     #[arg(long)]
-    port: Option<u16>,
+    socket_address: Option<SocketAddr>,
     #[arg(long)]
     connect: Option<SocketAddr>,
     #[arg(long)]
@@ -59,7 +59,8 @@ async fn main() -> anyhow::Result<()> {
     };
 
     let quinn_server = create_quinn_server(
-        cli.port.unwrap_or_default(),
+        cli.socket_address
+            .unwrap_or_else(|| "127.0.0.1:0".parse().unwrap()),
         cert_chain.clone(),
         key.clone_key(),
         remote_cert_chain.as_ref(),
